@@ -14,6 +14,7 @@ from ryu.lib import ofctl_v1_3
 
 LOG = logging.getLogger('ryu.app.restful_ctrl')
 
+
 class RestfulCTRL(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(RestfulCTRL, self).__init__(*args, **kwargs)
@@ -37,6 +38,7 @@ class RestfulCTRL(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _event_switch_hell_handler(self, ev):
         dp = ev.msg.datapath
+        count = 0
         flows = []
         for stats in ev.msg.body:
             actions = ofctl_v1_3.actions_to_str(stats.instructions)
@@ -56,5 +58,7 @@ class RestfulCTRL(app_manager.RyuApp):
                  'length': stats.length,
                  'flags': stats.flags}
             flows.append(s)
+            count += 1
         flows = {str(dp.id): flows}
         print json.dumps(flows)
+        print count
