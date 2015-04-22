@@ -1,3 +1,5 @@
+# -*- coding: utf8 -*-
+
 import logging
 
 import json
@@ -21,12 +23,14 @@ class StatefulCTRL(app_manager.RyuApp):
         # Test ouverture fichier
         try:
             self.CONF.register_group(cfg.OptGroup(name='stateful',
-                                    title='Stateful controller options'))
-            self.CONF.register_opts([cfg.StrOpt('filepath'),
-                                    cfg.BoolOpt('enable')], 'stateful')
+                                     title='Stateful controller options'))
+            self.CONF.register_opts([
+                                    cfg.StrOpt('filepath'),
+                                    cfg.BoolOpt('enable')
+                                    ], 'stateful')
 
             if self.CONF.stateful.enable is False:
-                print "Application Controleur stateful desactive"
+                print "Application Contrôleur stateful désactivé"
                 sys.exit(0)
             self.filepath = self.CONF.stateful.filepath
             file_test = io.open(self.filepath, mode='r')
@@ -41,7 +45,7 @@ class StatefulCTRL(app_manager.RyuApp):
     @set_ev_cls(dpset.EventDP, MAIN_DISPATCHER)
     def _event_switch_hello_handler(self, ev):
         if ev.enter is True:
-            print "Le switch no "+str(ev.dp.id)+" est connecte"
+            print "Le switch n° "+str(ev.dp.id)+" est connecté"
             datapath = ev.dp
             ofp = datapath.ofproto
             ofp_parser = datapath.ofproto_parser
@@ -55,7 +59,7 @@ class StatefulCTRL(app_manager.RyuApp):
                                                  match)
             datapath.send_msg(req)
         else:
-            print "Le switch no "+str(ev.dp.id)+" est deconnecte"
+            print "Le switch n° "+str(ev.dp.id)+" est déconnecté"
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _event_switch_connection_handler(self, ev):
@@ -89,14 +93,14 @@ class StatefulCTRL(app_manager.RyuApp):
 
         rules = list()
         if deseria.verify_instuctions(self.filepath, dp.id, count, rules) is False:
-            print "Nombre de regles sur "+str(dp.id)+" different du fichier de configuration"
+            print "Nombre de règles sur "+str(dp.id)+" différent du fichier de configuration"
             self._restore_rules(self, dp, rules)
         else:
-            print "Pas de modification a apporter sur le switch no "+str(dp.id)
+            print "Pas de modification à apporter sur le switch n° "+str(dp.id)
 
     @staticmethod
     def _restore_rules(self, dp, rules):
-        print "Restauration des regles de "+str(dp.id)+" en cours..."
+        print "Restauration des règles de "+str(dp.id)+" en cours..."
 
         for rule in rules:
             # Separation des regles flux / groupes
@@ -104,7 +108,7 @@ class StatefulCTRL(app_manager.RyuApp):
                 ofctl_v1_3.mod_group_entry(dp, rule, dp.ofproto.OFPGC_ADD)
             else:
                 ofctl_v1_3.mod_flow_entry(dp, rule, dp.ofproto.OFPFC_ADD)
-        print "Restauration des regles de "+str(dp.id)+" termine"
+        print "Restauration des règles de "+str(dp.id)+" terminé"
 
 
 class DeserializeJSON():
