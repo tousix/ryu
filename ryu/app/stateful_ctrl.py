@@ -42,24 +42,21 @@ class StatefulCTRL(app_manager.RyuApp):
             print "Erreur : Fichier de configuration invalide"
             sys.exit(0)
 
-    @set_ev_cls(dpset.EventDP, MAIN_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPStateChange, MAIN_DISPATCHER)
     def _event_switch_hello_handler(self, ev):
-        if ev.enter is True:
-            print "Le switch n° "+str(ev.dp.id)+" est connecté"
-            datapath = ev.dp
-            ofp = datapath.ofproto
-            ofp_parser = datapath.ofproto_parser
+        print "Le switch n° "+str(ev.datapath.id)+" a changé de statut."
+        datapath = ev.datapath
+        ofp = datapath.ofproto
+        ofp_parser = datapath.ofproto_parser
 
-            cookie = cookie_mask = 0
-            match = ofp_parser.OFPMatch()
-            req = ofp_parser.OFPFlowStatsRequest(datapath, 0,
-                                                 ofp.OFPTT_ALL,
-                                                 ofp.OFPP_ANY, ofp.OFPG_ANY,
-                                                 cookie, cookie_mask,
-                                                 match)
-            datapath.send_msg(req)
-        else:
-            print "Le switch n° "+str(ev.dp.id)+" est déconnecté"
+        cookie = cookie_mask = 0
+        match = ofp_parser.OFPMatch()
+        req = ofp_parser.OFPFlowStatsRequest(datapath, 0,
+                                             ofp.OFPTT_ALL,
+                                             ofp.OFPP_ANY, ofp.OFPG_ANY,
+                                             cookie, cookie_mask,
+                                             match)
+        datapath.send_msg(req)
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _event_switch_connection_handler(self, ev):
