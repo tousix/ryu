@@ -15,30 +15,30 @@ from ryu.controller.handler import set_ev_cls, MAIN_DISPATCHER
 from ryu.lib import hub
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib import ofctl_v1_3
-LOG = logging.getLogger('ryu.app.send_event_async')
+LOG = logging.getLogger('ryu.app.send_stats')
 
 class StatsSender(app_manager.RyuApp):
 
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
-        super(AsyncEventSender, self).__init__(*args, **kwargs)
+        super(StatsSender, self).__init__(*args, **kwargs)
         # Extract config file
         try:
-            self.CONF.register_group(cfg.OptGroup(name='async_event',
+            self.CONF.register_group(cfg.OptGroup(name='send_stats',
                                      title='REST controller options'))
             self.CONF.register_opts([
                                     cfg.ListOpt('servers'),
                                     cfg.ListOpt('table_id'),
                                     cfg.IntOpt('timer')
-                                    ], 'async_event')
+                                    ], 'send_stats')
         except cfg.NoSuchOptError:
             LOG.error("Fichier de configuration invalide")
             sys.exit(1)
         #Test servers defined
 
         self.servers = []
-        for server in self.CONF.async_event.servers:
+        for server in self.CONF.send_stats.servers:
             try:
                 server = server.translate(None, '\'\"[]')
                 requests.get(server)
@@ -51,7 +51,7 @@ class StatsSender(app_manager.RyuApp):
         self.timer = hub.spawn(self.timer_job)
 
     def timer_job(self):
-        timer = self.CONF.async_event.timer
+        timer = self.CONF.send_stats.timer
         while True:
             time.sleep(timer)
             if self.servers.__len__() != 0:
@@ -59,7 +59,7 @@ class StatsSender(app_manager.RyuApp):
                 # Create stats request
                 for switch in switches:
                     dpid = switch.dp.id
-                    for table_id in self.CONF.async_event.table_id:
+                    for table_id in self.CONF.send_stats.table_id:
                         LOG.debug('Création requète table_id n° ' + table_id + ' pour ' + str(dpid))
                         parser = switch.dp.ofproto_parser
                         request = parser.OFPFlowStatsRequest(switch.dp, 0, int(table_id))
