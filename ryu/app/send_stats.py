@@ -86,7 +86,8 @@ class StatsSender(app_manager.RyuApp):
                  'table_id': stats.table_id,
                  'length': stats.length,
                  'flags': stats.flags}
-            flows.append(s)
+            if str(s["table_id"]) in self.CONF.send_stats.table_id:
+                flows.append(s)
 
         flows = {str(ev.msg.datapath.id): flows}
         LOG.debug("Envoi des stats sur les serveurs")
