@@ -91,10 +91,11 @@ class StatsSender(app_manager.RyuApp):
 
         flows = {str(ev.msg.datapath.id): flows}
         LOG.debug("Envoi des stats sur les serveurs")
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         content = json.dumps(flows)
         for server in self.servers:
             try:
-                r = requests.post(server+"/stats/reply", data=content)
+                r = requests.post(server+"/stats/reply", data=content, headers=headers)
                 if r.status_code != requests.codes.ok:
                     LOG.error("Erreur n° " + str(r.status_code) + " sur le serveur " + server)
             except requests.ConnectionError:
