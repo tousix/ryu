@@ -44,6 +44,7 @@ class AsyncEventSender(app_manager.RyuApp):
 
     def send_event_http(self, msg, type):
         content = json.dumps(msg)
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         path = "error/ryu"
         if type == "switch_enter":
             path = "/switch/enter"
@@ -57,7 +58,7 @@ class AsyncEventSender(app_manager.RyuApp):
             LOG.error("Mauvais type d'envoi")
         for server in self.servers:
             try:
-                r = requests.post(server+path, data=content)
+                r = requests.post(server+path, data=content, headers=headers)
                 if r.status_code != requests.codes.ok:
                     LOG.error("Erreur n° " + str(r.status_code) + " sur le serveur " + server)
             except requests.ConnectionError:
