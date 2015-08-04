@@ -2,7 +2,6 @@
 __author__ = 'remy'
 
 import logging
-import sys
 import json
 import requests
 from ryu.base import app_manager
@@ -21,26 +20,36 @@ class AsyncEventSender(app_manager.RyuApp):
 
     def __init__(self, *args, **_kwargs):
         super(AsyncEventSender, self).__init__(*args, **_kwargs)
+        if self.load_config() is True:
+            # Test servers defined
+
+            self.servers = []
+            for server in self.CONF.send_async.servers:
+                try:
+                    server = server.translate(None, '\'\"[]')
+                    requests.get(server)
+                    self.servers.append(server)
+                except requests.ConnectionError:
+                    LOG.warning("Server " + server + " not reachable, ignoring url defined")
+            LOG.debug("Server verification complete")
+
+    def load_config(self):
         try:
             self.CONF.register_group(cfg.OptGroup(name='send_async',
                                      title='REST controller options'))
             self.CONF.register_opts([
                                     cfg.ListOpt('servers'),
+                                    cfg.BoolOpt('enable')
                                     ], 'send_async')
+            if self.CONF.send_async.enable is False:
+                LOG.warn("Application Envoi évènements asynchrones désactivé")
+                self.stop()
+                return False
         except cfg.NoSuchOptError:
             LOG.error("Fichier de configuration invalide")
-            sys.exit(1)
-        # Test servers defined
-
-        self.servers = []
-        for server in self.CONF.send_async.servers:
-            try:
-                server = server.translate(None, '\'\"[]')
-                requests.get(server)
-                self.servers.append(server)
-            except requests.ConnectionError:
-                LOG.warning("Server " + server + " not reachable, ignoring url defined")
-        LOG.debug("Server verification complete")
+            self.stop()
+            return False
+        return True
 
     def send_event_http(self, msg, type):
         content = json.dumps(msg)

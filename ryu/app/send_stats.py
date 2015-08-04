@@ -4,7 +4,6 @@ __author__ = 'remy'
 from ryu.base import app_manager
 import logging
 import requests
-import sys
 import time
 import json
 
@@ -23,6 +22,23 @@ class StatsSender(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(StatsSender, self).__init__(*args, **kwargs)
+        if self.load_config() is True:
+            #Test servers defined
+
+            self.servers = []
+            for server in self.CONF.send_stats.servers:
+                try:
+                    server = server.translate(None, '\'\"[]')
+                    requests.get(server)
+                    self.servers.append(server)
+                except requests.ConnectionError:
+                    LOG.warning("Server " + server + " not reachable, ignoring url defined")
+            LOG.debug("Server verification complete")
+
+            # Création thread routine
+            self.timer = hub.spawn(self.timer_job)
+
+    def load_config(self):
         # Extract config file
         try:
             self.CONF.register_group(cfg.OptGroup(name='send_stats',
@@ -30,25 +46,18 @@ class StatsSender(app_manager.RyuApp):
             self.CONF.register_opts([
                                     cfg.ListOpt('servers'),
                                     cfg.ListOpt('table_id'),
-                                    cfg.IntOpt('timer')
+                                    cfg.IntOpt('timer'),
+                                    cfg.BoolOpt('enable')
                                     ], 'send_stats')
+            if self.CONF.send_stats.enable is False:
+                LOG.warn("Application Envoi statistiques désactivé")
+                self.stop()
+                return False
         except cfg.NoSuchOptError:
             LOG.error("Fichier de configuration invalide")
-            sys.exit(1)
-        #Test servers defined
-
-        self.servers = []
-        for server in self.CONF.send_stats.servers:
-            try:
-                server = server.translate(None, '\'\"[]')
-                requests.get(server)
-                self.servers.append(server)
-            except requests.ConnectionError:
-                LOG.warning("Server " + server + " not reachable, ignoring url defined")
-        LOG.debug("Server verification complete")
-
-        # Création thread routine
-        self.timer = hub.spawn(self.timer_job)
+            self.stop()
+            return False
+        return True
 
     def timer_job(self):
         timer = self.CONF.send_stats.timer

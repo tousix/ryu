@@ -4,7 +4,6 @@ import logging
 import requests
 import json
 import io
-import sys
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -20,6 +19,10 @@ LOG = logging.getLogger('ryu.app.stateful_ctrl')
 class StatefulCTRL(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(StatefulCTRL, self).__init__(*args, **kwargs)
+        if self.load_config() is True:
+            self.is_verifying = {}
+
+    def load_config(self):
         # Test ouverture fichier
         try:
             self.CONF.register_group(cfg.OptGroup(name='stateful',
@@ -32,17 +35,19 @@ class StatefulCTRL(app_manager.RyuApp):
 
             if self.CONF.stateful.enable is False:
                 LOG.warn("Application Contrôleur stateful désactivé")
-                sys.exit(0)
+                self.stop()
             self.filepath = self.CONF.stateful.filepath
             file_test = io.open(self.filepath, mode='r')
             file_test.close()
         except AttributeError:
             LOG.error("Erreur : Chemin de fichier invalide")
-            sys.exit(0)
+            self.stop()
+            return False
         except cfg.NoSuchOptError:
             LOG.error("Erreur : Fichier de configuration invalide")
-            sys.exit(0)
-        self.is_verifying = {}
+            self.stop()
+            return False
+        return True
 
     @set_ev_cls(ofp_event.EventOFPStateChange, MAIN_DISPATCHER)
     def _event_switch_hello_handler(self, ev):
