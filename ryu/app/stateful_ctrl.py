@@ -1,7 +1,7 @@
 # -*- coding: utf8 -*-
 
 import logging
-
+import requests
 import json
 import io
 import sys
@@ -26,25 +26,27 @@ class StatefulCTRL(app_manager.RyuApp):
                                      title='Stateful controller options'))
             self.CONF.register_opts([
                                     cfg.StrOpt('filepath'),
+                                    cfg.StrOpt('server'),
                                     cfg.BoolOpt('enable')
                                     ], 'stateful')
 
             if self.CONF.stateful.enable is False:
-                print "Application Contrôleur stateful désactivé"
+                LOG.warn("Application Contrôleur stateful désactivé")
                 sys.exit(0)
             self.filepath = self.CONF.stateful.filepath
             file_test = io.open(self.filepath, mode='r')
             file_test.close()
         except AttributeError:
-            print "Erreur : Chemin de fichier invalide"
+            LOG.error("Erreur : Chemin de fichier invalide")
             sys.exit(0)
         except cfg.NoSuchOptError:
-            print "Erreur : Fichier de configuration invalide"
+            LOG.error("Erreur : Fichier de configuration invalide")
             sys.exit(0)
+        self.is_verifying = {}
 
     @set_ev_cls(ofp_event.EventOFPStateChange, MAIN_DISPATCHER)
     def _event_switch_hello_handler(self, ev):
-        print "Le switch n° "+str(ev.datapath.id)+" a changé de statut."
+        LOG.info("Le switch n° "+str(ev.datapath.id)+" a changé de statut.")
         datapath = ev.datapath
         ofp = datapath.ofproto
         ofp_parser = datapath.ofproto_parser
@@ -52,60 +54,63 @@ class StatefulCTRL(app_manager.RyuApp):
         cookie = cookie_mask = 0
         match = ofp_parser.OFPMatch()
         req = ofp_parser.OFPFlowStatsRequest(datapath, 0,
-                                             ofp.OFPTT_ALL,
+                                             0,
                                              ofp.OFPP_ANY, ofp.OFPG_ANY,
                                              cookie, cookie_mask,
                                              match)
+        self.is_verifying[datapath.id] = True
         datapath.send_msg(req)
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _event_switch_connection_handler(self, ev):
+        if self.is_verifying.get(ev.msg.datapath.id, False) is False:
+            return None
+        # count flow rules on table 0
         dp = ev.msg.datapath
         count = 0
-        flows = []
         for stats in ev.msg.body:
-            actions = ofctl_v1_3.actions_to_str(stats.instructions)
-            match = ofctl_v1_3.match_to_str(stats.match)
-
-            s = {'priority': stats.priority,
-                 'cookie': stats.cookie,
-                 'idle_timeout': stats.idle_timeout,
-                 'hard_timeout': stats.hard_timeout,
-                 'actions': actions,
-                 'match': match,
-                 'byte_count': stats.byte_count,
-                 'duration_sec': stats.duration_sec,
-                 'duration_nsec': stats.duration_nsec,
-                 'packet_count': stats.packet_count,
-                 'table_id': stats.table_id,
-                 'length': stats.length,
-                 'flags': stats.flags}
-            flows.append(s)
-            count += 1
-        flows = {str(dp.id): flows}
-        # print json.dumps(flows)
-        # print count
-
-        deseria = DeserializeJSON()
-
-        rules = list()
-        if deseria.verify_instuctions(self.filepath, dp.id, count, rules) is False:
-            print "Nombre de règles sur "+str(dp.id)+" différent du fichier de configuration"
-            self._restore_rules(self, dp, rules)
+            if stats.table_id is 0:
+                count += 1
+        # Server verification
+        server = self.CONF.stateful.server.translate(None, '\'\"[]')
+        try:
+            requests.get(server, timeout=2)
+        except requests.ConnectionError:
+            LOG.warning("Server " + server + " not reachable, ignoring url defined")
+            server = None
+        except requests.Timeout:
+            LOG.warning("Server " + server + " timed out")
+            server = None
+        if server is not None:
+            response = requests.get(server + "/deployment/rules/ask", params={"idswitch": dp.id})
+            data = response.json()
+            filtre = filter(lambda rule: rule.get("table_id", None) is 0, data)
+            if filtre.__len__() is not count:
+                LOG.info("Nombre de règles sur "+str(dp.id)+" différent de la base de données")
+                self._restore_rules(self, dp, data)
+            else:
+                LOG.info("Pas de modification à apporter sur le switch n° "+str(dp.id))
         else:
-            print "Pas de modification à apporter sur le switch n° "+str(dp.id)
+            deseria = DeserializeJSON()
+
+            rules = list()
+            if deseria.verify_instuctions(self.filepath, dp.id, count, rules) is False:
+                LOG.info("Nombre de règles sur "+str(dp.id)+" différent du fichier de configuration")
+                self._restore_rules(self, dp, rules)
+            else:
+                LOG.info("Pas de modification à apporter sur le switch n° "+str(dp.id))
+        self.is_verifying[dp.id] = False
 
     @staticmethod
     def _restore_rules(self, dp, rules):
-        print "Restauration des règles de "+str(dp.id)+" en cours..."
-
-        for rule in rules:
-            # Separation des regles flux / groupes
-            if ("buckets" in rule) is True:
-                ofctl_v1_3.mod_group_entry(dp, rule, dp.ofproto.OFPGC_ADD)
-            else:
-                ofctl_v1_3.mod_flow_entry(dp, rule, dp.ofproto.OFPFC_ADD)
-        print "Restauration des règles de "+str(dp.id)+" terminé"
+        LOG.info("Restauration des règles de "+str(dp.id)+" en cours...")
+        flows = filter(lambda rule: "buckets" not in rule, rules)
+        groups = filter(lambda rule: "buckets" in rule, rules)
+        for rule in groups:
+            ofctl_v1_3.mod_group_entry(dp, rule, dp.ofproto.OFPGC_ADD)
+        for rule in flows:
+            ofctl_v1_3.mod_flow_entry(dp, rule, dp.ofproto.OFPFC_ADD)
+        LOG.info("Restauration des règles de "+str(dp.id)+" terminé")
 
 
 class DeserializeJSON():
@@ -132,7 +137,8 @@ class DeserializeJSON():
         for rule in self.instruction:
             if rule['dpid'] == dpid or rule['dpid'] == str(dpid):
                 if ("buckets" in rule) is False:
-                    count += 1
+                    if rule["table_id"] is 0:
+                        count += 1
                 rules.append(rule)
         if count == number:
             return True
