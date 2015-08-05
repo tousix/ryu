@@ -30,6 +30,7 @@ class StatefulCTRL(app_manager.RyuApp):
             self.CONF.register_opts([
                                     cfg.StrOpt('filepath'),
                                     cfg.StrOpt('server'),
+                                    cfg.IntOpt('timeout'),
                                     cfg.BoolOpt('enable')
                                     ], 'stateful')
 
@@ -79,7 +80,7 @@ class StatefulCTRL(app_manager.RyuApp):
         # Server verification
         server = self.CONF.stateful.server.translate(None, '\'\"[]')
         try:
-            requests.get(server, timeout=2)
+            requests.get(server, timeout=self.CONF.stateful.timeout)
         except requests.ConnectionError:
             LOG.warning("Server " + server + " not reachable, ignoring url defined")
             server = None
