@@ -35,13 +35,13 @@ from ryu import cfg
 
 # import all packet libraries.
 PKT_LIB_PATH = 'ryu.lib.packet'
-for modname, moddef in sys.modules.iteritems():
+for modname, moddef in sys.modules.items():
     if not modname.startswith(PKT_LIB_PATH) or not moddef:
         continue
     for (clsname, clsdef, ) in inspect.getmembers(moddef):
         if not inspect.isclass(clsdef):
             continue
-        exec 'from %s import %s' % (modname, clsname)
+        exec('from %s import %s' % (modname, clsname))
 
 from ryu.base import app_manager
 from ryu.controller import handler

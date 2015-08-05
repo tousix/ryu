@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import inspect
+import six
 import struct
 
 from . import packet_base
@@ -72,7 +73,7 @@ class Packet(object):
                     prev = r[i + 1]
                 data = p.serialize(self.data, prev)
             else:
-                data = str(p)
+                data = six.binary_type(p)
             self.data = data + self.data
 
     def add_protocol(self, proto):
@@ -109,6 +110,9 @@ class Packet(object):
         self.add_protocol(trailer)
         return self
 
+    def __truediv__(self, trailer):
+        return self.__div__(trailer)
+
     def __iter__(self):
         return iter(self.protocols)
 
@@ -143,3 +147,4 @@ def _PacketBase__div__(self, trailer):
     return pkt
 
 packet_base.PacketBase.__div__ = _PacketBase__div__
+packet_base.PacketBase.__truediv__ = _PacketBase__div__

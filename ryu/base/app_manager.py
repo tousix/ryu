@@ -28,6 +28,7 @@ import itertools
 import logging
 import sys
 import os
+import gc
 
 from ryu import cfg
 from ryu import utils
@@ -146,7 +147,7 @@ class RyuApp(object):
         """
         Return iterator over the (key, contxt class) of application context
         """
-        return cls._CONTEXTS.iteritems()
+        return iter(cls._CONTEXTS.items())
 
     def __init__(self, *_args, **_kwargs):
         super(RyuApp, self).__init__()
@@ -242,7 +243,7 @@ class RyuApp(object):
 
     def get_observers(self, ev, state):
         observers = []
-        for k, v in self.observers.get(ev.__class__, {}).iteritems():
+        for k, v in self.observers.get(ev.__class__, {}).items():
             if not state or not v or state in v:
                 observers.append(k)
 
@@ -344,6 +345,10 @@ class AppManager(object):
             hub.joinall(services)
         finally:
             app_mgr.close()
+            for t in services:
+                t.kill()
+            hub.joinall(services)
+            gc.collect()
 
     @staticmethod
     def get_instance():
@@ -375,8 +380,7 @@ class AppManager(object):
         while len(app_lists) > 0:
             app_cls_name = app_lists.pop(0)
 
-            context_modules = map(lambda x: x.__module__,
-                                  self.contexts_cls.values())
+            context_modules = [x.__module__ for x in self.contexts_cls.values()]
             if app_cls_name in context_modules:
                 continue
 
@@ -423,7 +427,7 @@ class AppManager(object):
             for _k, m in inspect.getmembers(i, inspect.ismethod):
                 if not hasattr(m, 'callers'):
                     continue
-                for ev_cls, c in m.callers.iteritems():
+                for ev_cls, c in m.callers.items():
                     if not c.ev_source:
                         continue
 
@@ -433,7 +437,7 @@ class AppManager(object):
                                                 c.dispatchers)
 
                     # allow RyuApp and Event class are in different module
-                    for brick in SERVICE_BRICKS.itervalues():
+                    for brick in SERVICE_BRICKS.values():
                         if ev_cls in brick._EVENTS:
                             brick.register_observer(ev_cls, i.name,
                                                     c.dispatchers)
@@ -511,5 +515,7 @@ class AppManager(object):
                 self._close(app)
             close_dict.clear()
 
-        close_all(self.applications)
+        for app_name in list(self.applications.keys()):
+            self.uninstantiate(app_name)
+        assert not self.applications
         close_all(self.contexts)

@@ -36,6 +36,12 @@ def generate(ofp_name, ofpp_name):
         _hdr_fmt_str = '!H'  # 2 bit 0s, 1 bit src, 2 bit dst, 11 bit n_bits
         _dst_type = None
         _subclasses = {}
+        _TYPE = {
+            'nx-flow-spec-field': [
+                'src',
+                'dst',
+            ]
+        }
 
         def __init__(self, src, dst, n_bits):
             self.src = src
@@ -62,7 +68,7 @@ def generate(ofp_name, ofpp_name):
                 src = cls._parse_subfield(rest)
                 rest = rest[6:]
             elif src_type == 1:  # immediate
-                src_len = (n_bits + 15) / 16 * 2
+                src_len = (n_bits + 15) // 16 * 2
                 src_bin = rest[:src_len]
                 src = type_desc.IntDescr(size=src_len).to_user(src_bin)
                 rest = rest[src_len:]
@@ -89,7 +95,7 @@ def generate(ofp_name, ofpp_name):
             if src_type == 0:  # subfield
                 buf += self._serialize_subfield(self.src)
             elif src_type == 1:  # immediate
-                src_len = (self.n_bits + 15) / 16 * 2
+                src_len = (self.n_bits + 15) // 16 * 2
                 buf += type_desc.IntDescr(size=src_len).from_user(self.src)
             # dst
             if self._dst_type == 0:  # match
@@ -200,6 +206,12 @@ def generate(ofp_name, ofpp_name):
         _subtype = nicira_ext.NXAST_REG_MOVE
         _fmt_str = '!HHH'  # n_bits, src_ofs, dst_ofs
         # Followed by OXM fields (src, dst) and padding to 8 bytes boundary
+        _TYPE = {
+            'ascii': [
+                'src_field',
+                'dst_field',
+            ]
+        }
 
         def __init__(self, src_field, dst_field, n_bits, src_ofs=0, dst_ofs=0,
                      type_=None, len_=None, experimenter=None, subtype=None):
@@ -329,7 +341,82 @@ def generate(ofp_name, ofpp_name):
             msg_pack_into('!%ds' % len(data), buf, offset + payload_offset,
                           bytes(data))
 
+    class NXActionConjunction(NXAction):
+        _subtype = nicira_ext.NXAST_CONJUNCTION
+
+        # clause, n_clauses, id
+        _fmt_str = '!BBI'
+
+        def __init__(self,
+                     clause,
+                     n_clauses,
+                     id_,
+                     type_=None, len_=None, experimenter=None, subtype=None):
+            super(NXActionConjunction, self).__init__()
+            self.clause = clause
+            self.n_clauses = n_clauses
+            self.id = id_
+
+        @classmethod
+        def parse(cls, buf):
+            (clause,
+             n_clauses,
+             id_,) = struct.unpack_from(
+                NXActionConjunction._fmt_str, buf, 0)
+            return cls(clause, n_clauses, id_)
+
+        def serialize(self, buf, offset):
+            data = bytearray()
+            msg_pack_into(NXActionConjunction._fmt_str, data, 0,
+                          self.clause,
+                          self.n_clauses,
+                          self.id)
+            payload_offset = (
+                ofp.OFP_ACTION_EXPERIMENTER_HEADER_SIZE +
+                struct.calcsize(NXAction._fmt_str)
+            )
+            self.len = utils.round_up(payload_offset + len(data), 8)
+            super(NXActionConjunction, self).serialize(buf, offset)
+            msg_pack_into('!%ds' % len(data), buf, offset + payload_offset,
+                          bytes(data))
+
+    class NXActionResubmitTable(NXAction):
+        _subtype = nicira_ext.NXAST_RESUBMIT_TABLE
+
+        # in_port, table_id
+        _fmt_str = '!HB3x'
+
+        def __init__(self,
+                     in_port,
+                     table_id,
+                     type_=None, len_=None, experimenter=None, subtype=None):
+            super(NXActionResubmitTable, self).__init__()
+            self.in_port = in_port
+            self.table_id = table_id
+
+        @classmethod
+        def parse(cls, buf):
+            (in_port,
+             table_id) = struct.unpack_from(
+                NXActionResubmitTable._fmt_str, buf, 0)
+            return cls(in_port, table_id)
+
+        def serialize(self, buf, offset):
+            data = bytearray()
+            msg_pack_into(NXActionResubmitTable._fmt_str, data, 0,
+                          self.in_port,
+                          self.table_id)
+            payload_offset = (
+                ofp.OFP_ACTION_EXPERIMENTER_HEADER_SIZE +
+                struct.calcsize(NXAction._fmt_str)
+            )
+            self.len = utils.round_up(payload_offset + len(data), 8)
+            super(NXActionResubmitTable, self).serialize(buf, offset)
+            msg_pack_into('!%ds' % len(data), buf, offset + payload_offset,
+                          bytes(data))
+
     def add_attr(k, v):
+        v.__module__ = ofpp.__name__  # Necessary for stringify stuff
         setattr(ofpp, k, v)
 
     add_attr('NXAction', NXAction)
@@ -338,6 +425,8 @@ def generate(ofp_name, ofpp_name):
     classes = [
         'NXActionRegMove',
         'NXActionLearn',
+        'NXActionConjunction',
+        'NXActionResubmitTable',
         '_NXFlowSpec',  # exported for testing
         'NXFlowSpecMatch',
         'NXFlowSpecLoad',

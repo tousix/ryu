@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Copyright (C) 2013,2014,2015 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2013,2014,2015 YAMAMOTO Takashi <yamamoto at valinux co jp>
 #
@@ -16,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import six
 import sys
 import unittest
 from nose.tools import eq_
@@ -27,6 +26,7 @@ from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto import ofproto_v1_4
 from ryu.ofproto import ofproto_v1_5
+from ryu.tests import test_lib
 import json
 
 
@@ -145,7 +145,7 @@ implemented = {
         ofproto_v1_5.OFPT_ROLE_STATUS: (True, False),
         ofproto_v1_5.OFPT_TABLE_STATUS: (True, False),
         ofproto_v1_5.OFPT_REQUESTFORWARD: (False, True),
-        ofproto_v1_5.OFPT_BUNDLE_CONTROL: (False, True),
+        ofproto_v1_5.OFPT_BUNDLE_CONTROL: (True, True),
         ofproto_v1_5.OFPT_BUNDLE_ADD_MESSAGE: (False, True),
     },
 }
@@ -156,7 +156,7 @@ class Test_Parser(unittest.TestCase):
     """
 
     def __init__(self, methodName):
-        print 'init', methodName
+        print('init %s' % methodName)
         super(Test_Parser, self).__init__(methodName)
 
     def setUp(self):
@@ -189,7 +189,7 @@ class Test_Parser(unittest.TestCase):
                                      wire_msg)
             json_dict2 = self._msg_to_jsondict(msg)
             # XXXdebug code
-            open(('/tmp/%s.json' % name), 'wb').write(json.dumps(json_dict2))
+            open(('/tmp/%s.json' % name), 'w').write(json.dumps(json_dict2))
             eq_(json_dict, json_dict2)
 
         # json -> OFPxxx -> json
@@ -204,10 +204,10 @@ class Test_Parser(unittest.TestCase):
             def _remove(d, names):
                 f = lambda x: _remove(x, names)
                 if isinstance(d, list):
-                    return map(f, d)
+                    return list(map(f, d))
                 if isinstance(d, dict):
                     d2 = {}
-                    for k, v in d.iteritems():
+                    for k, v in d.items():
                         if k in names:
                             continue
                         d2[k] = f(v)
@@ -227,7 +227,6 @@ def _add_tests():
     import os
     import os.path
     import fnmatch
-    import new
     import functools
 
     this_dir = os.path.dirname(sys.modules[__name__].__file__)
@@ -240,25 +239,32 @@ def _add_tests():
         'of14',
         'of15',
     ]
+    cases = set()
     for ver in ofvers:
         pdir = packet_data_dir + '/' + ver
         jdir = json_dir + '/' + ver
+        n_added = 0
         for file in os.listdir(pdir):
             if not fnmatch.fnmatch(file, '*.packet'):
                 continue
             wire_msg = open(pdir + '/' + file, 'rb').read()
-            json_str = open(jdir + '/' + file + '.json', 'rb').read()
+            json_str = open(jdir + '/' + file + '.json', 'r').read()
             method_name = ('test_' + file).replace('-', '_').replace('.', '_')
 
             def _run(self, name, wire_msg, json_str):
-                print ('processing %s ...' % name)
-                self._test_msg(name, wire_msg, json_str)
-            print ('adding %s ...' % method_name)
+                print('processing %s ...' % name)
+                if six.PY3:
+                    self._test_msg(self, name, wire_msg, json_str)
+                else:
+                    self._test_msg(name, wire_msg, json_str)
+            print('adding %s ...' % method_name)
             f = functools.partial(_run, name=method_name, wire_msg=wire_msg,
                                   json_str=json_str)
-            f.func_name = method_name
-            f.__name__ = method_name
-            im = new.instancemethod(f, None, Test_Parser)
-            setattr(Test_Parser, method_name, im)
+            test_lib.add_method(Test_Parser, method_name, f)
+            cases.add(method_name)
+            n_added += 1
+        assert n_added > 0
+    assert (cases ==
+            set(unittest.defaultTestLoader.getTestCaseNames(Test_Parser)))
 
 _add_tests()

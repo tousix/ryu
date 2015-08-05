@@ -19,7 +19,7 @@
 
 from struct import calcsize
 
-from ofproto_common import OFP_HEADER_SIZE
+from ryu.ofproto.ofproto_common import OFP_HEADER_SIZE
 
 # Action subtypes
 NXAST_RESUBMIT = 1
@@ -42,6 +42,7 @@ NXAST_EXIT = 17
 NXAST_DEC_TTL = 18
 NXAST_FIN_TIMEOUT = 19
 NXAST_CONTROLLER = 20
+NXAST_CONJUNCTION = 34
 
 NX_ACTION_RESUBMIT_PACK_STR = '!HHIHHB3x'
 NX_ACTION_RESUBMIT_SIZE = 16

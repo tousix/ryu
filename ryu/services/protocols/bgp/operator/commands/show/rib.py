@@ -55,7 +55,7 @@ class Rib(RibBase):
                 for family in self.supported_families:
                     ret[family] = self.api.get_single_rib_routes(family)
                 return CommandsResponse(STATUS_OK, ret)
-            except ActivityException, e:
+            except ActivityException as e:
                 return CommandsResponse(STATUS_ERROR, e)
 
         @classmethod
@@ -63,7 +63,7 @@ class Rib(RibBase):
             if resp.status == STATUS_ERROR:
                 return RibBase.cli_resp_formatter(resp)
             ret = cls._format_family_header()
-            for family, data in resp.value.iteritems():
+            for family, data in resp.value.items():
                 ret += 'Family: {0}\n'.format(family)
                 ret += cls._format_family(data)
             return ret

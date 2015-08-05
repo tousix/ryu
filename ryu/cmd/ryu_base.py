@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import ryu.contrib
+ryu.contrib.update_module_path()
 
 from ryu import cfg
 from ryu import utils
@@ -42,7 +43,7 @@ base_conf = cfg.ConfigOpts()
 base_conf.register_cli_opt(cfg.StrOpt('subcommand', positional=True,
                                       required=True,
                                       help='[%s]' % '|'.join(
-                                          subcommands.keys())))
+                                          list(subcommands.keys()))))
 base_conf.register_cli_opt(RemainderOpt('subcommand_args', default=[],
                                         positional=True,
                                         help='subcommand specific arguments'))
@@ -61,7 +62,7 @@ class SubCommand(object):
 def main():
     try:
         base_conf(project='ryu', version='ryu %s' % version)
-    except cfg.RequiredOptError, e:
+    except cfg.RequiredOptError as e:
         base_conf.print_help()
         raise SystemExit(1)
     subcmd_name = base_conf.subcommand

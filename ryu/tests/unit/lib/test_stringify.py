@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-#
-# Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
-# Copyright (C) 2013 YAMAMOTO Takashi <yamamoto at valinux co jp>
+# Copyright (C) 2013-2015 Nippon Telegraph and Telephone Corporation.
+# Copyright (C) 2013-2015 YAMAMOTO Takashi <yamamoto at valinux co jp>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +15,7 @@
 # limitations under the License.
 
 import base64
+import six
 import unittest
 from nose.tools import eq_
 
@@ -25,7 +24,7 @@ from ryu.lib import stringify
 
 class C1(stringify.StringifyMixin):
     def __init__(self, a, c):
-        print "init", a, c
+        print("init %s %s" % (a, c))
         self.a = a
         self._b = 'B'
         self.c = c
@@ -42,23 +41,27 @@ class Test_stringify(unittest.TestCase):
         pass
 
     def test_jsondict(self):
+        if six.PY3:
+            def b64encode(s):
+                return base64.b64encode(s).decode('ascii')
+        else:
+            b64encode = base64.b64encode
         j = {'C1': {'a': 'QUFB', 'c': 'Q0ND'}}
-        eq_(j['C1']['a'], base64.b64encode('AAA'))
-        eq_(j['C1']['c'], base64.b64encode('CCC'))
-        c = C1(a='AAA', c='CCC')
+        eq_(j['C1']['a'], b64encode(b'AAA'))
+        eq_(j['C1']['c'], b64encode(b'CCC'))
+        c = C1(a=b'AAA', c=b'CCC')
         c2 = C1.from_jsondict(j['C1'])
         eq_(c.__class__, c2.__class__)
         eq_(c.__dict__, c2.__dict__)
         eq_(j, c.to_jsondict())
 
     def test_jsondict2(self):
-        import string
 
         def my_encode(x):
-            return string.lower(x)
+            return x.lower()
 
         def my_decode(x):
-            return string.upper(x)
+            return x.upper()
 
         j = {'C1': {'a': 'aaa', 'c': 'ccc'}}
         eq_(j['C1']['a'], my_encode('AAA'))

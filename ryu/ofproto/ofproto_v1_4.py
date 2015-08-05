@@ -342,7 +342,7 @@ def oxm_tlv_header_extract_hasmask(header):
 
 def oxm_tlv_header_extract_length(header):
     if oxm_tlv_header_extract_hasmask(header):
-        length = (header & 0xff) / 2
+        length = (header & 0xff) // 2
     else:
         length = header & 0xff
     return length
@@ -391,6 +391,7 @@ oxm_types = [
     oxm_fields.OpenFlowBasic('pbb_uca', 41, type_desc.Int1),
     oxm_fields.NiciraExtended1('tun_ipv4_src', 31, type_desc.IPv4Addr),
     oxm_fields.NiciraExtended1('tun_ipv4_dst', 32, type_desc.IPv4Addr),
+    oxm_fields.NiciraExtended1('pkt_mark', 33, type_desc.Int4),
 ]
 
 oxm_fields.generate(__name__)

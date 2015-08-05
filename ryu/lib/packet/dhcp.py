@@ -149,7 +149,7 @@ class dhcp(packet_base.PacketBase):
     def __init__(self, op, chaddr, options, htype=_HARDWARE_TYPE_ETHERNET,
                  hlen=0, hops=0, xid=None, secs=0, flags=0,
                  ciaddr='0.0.0.0', yiaddr='0.0.0.0', siaddr='0.0.0.0',
-                 giaddr='0.0.0.0', sname='', boot_file=''):
+                 giaddr='0.0.0.0', sname='', boot_file=b''):
         super(dhcp, self).__init__()
         self.op = op
         self.htype = htype
@@ -192,7 +192,8 @@ class dhcp(packet_base.PacketBase):
                     addrconv.ipv4.bin_to_text(ciaddr),
                     addrconv.ipv4.bin_to_text(yiaddr),
                     addrconv.ipv4.bin_to_text(siaddr),
-                    addrconv.ipv4.bin_to_text(giaddr), sname, boot_file),
+                    addrconv.ipv4.bin_to_text(giaddr),
+                    sname.decode('ascii'), boot_file),
                 None, buf[length:])
 
     @classmethod
@@ -213,7 +214,7 @@ class dhcp(packet_base.PacketBase):
                            addrconv.ipv4.text_to_bin(self.siaddr),
                            addrconv.ipv4.text_to_bin(self.giaddr),
                            addrconv.mac.text_to_bin(self.chaddr),
-                           self.sname, self.boot_file, seri_opt)
+                           self.sname.encode('ascii'), self.boot_file, seri_opt)
 
 
 class options(stringify.StringifyMixin):

@@ -19,8 +19,12 @@ import itertools
 import logging
 import operator
 import os
+import six
 import sys
 import weakref
+
+import ryu.contrib
+ryu.contrib.update_module_path()
 
 import ovs.db.data
 import ovs.db.types
@@ -713,7 +717,7 @@ class VSCtlContext(object):
         else:
             key = None
         if value is not None:
-            LOG.debug("columns %s", table_schema.columns.keys())
+            LOG.debug("columns %s", list(table_schema.columns.keys()))
             type_ = table_schema.columns[column].type
             value = datum_from_string(type_, value)
             LOG.debug("column %s value %s", column, value)
@@ -749,7 +753,7 @@ class VSCtlContext(object):
         if not vsctl_row_id.name_column:
             if record_id != '.':
                 return None
-            values = self.idl.tables[vsctl_row_id.table].rows.values()
+            values = list(self.idl.tables[vsctl_row_id.table].rows.values())
             if not values or len(values) > 2:
                 return None
             referrer = values[0]
@@ -758,7 +762,7 @@ class VSCtlContext(object):
             for ovsrec_row in self.idl.tables[
                     vsctl_row_id.table].rows.values():
                 name = getattr(ovsrec_row, vsctl_row_id.name_column)
-                assert type(name) in (list, str, unicode)
+                assert type(name) in (list, str, six.text_type)
                 if type(name) != list and name == record_id:
                     if (referrer):
                         vsctl_fatal('multiple rows in %s match "%s"' %
@@ -937,7 +941,7 @@ class VSCtl(object):
         txn.add_comment('ovs-vsctl')  # TODO:XXX add operation name. args
         ovs_rows = idl_.tables[vswitch_idl.OVSREC_TABLE_OPEN_VSWITCH].rows
         if ovs_rows:
-            ovs_ = ovs_rows.values()[0]
+            ovs_ = list(ovs_rows.values())[0]
         else:
             # XXX add verification that table is empty
             ovs_ = txn.insert(
@@ -1876,27 +1880,27 @@ def schema_print(schema_location, prefix):
     json = ovs.json.from_file(schema_location)
     schema = ovs.db.schema.DbSchema.from_json(json)
 
-    print '# Do NOT edit.'
-    print '# This is automatically generated.'
-    print '# created based on version %s' % (schema.version or 'unknown')
-    print ''
-    print ''
-    print '%s_DB_NAME = \'%s\'' % (prefix, schema.name)
+    print('# Do NOT edit.')
+    print('# This is automatically generated.')
+    print('# created based on version %s' % (schema.version or 'unknown'))
+    print('')
+    print('')
+    print('%s_DB_NAME = \'%s\'' % (prefix, schema.name))
     for table in sorted(schema.tables.values(),
                         key=operator.attrgetter('name')):
-        print ''
-        print '%s_TABLE_%s = \'%s\'' % (prefix,
-                                        table.name.upper(), table.name)
+        print('')
+        print('%s_TABLE_%s = \'%s\'' % (prefix,
+                                        table.name.upper(), table.name))
         for column in sorted(table.columns.values(),
                              key=operator.attrgetter('name')):
-            print '%s_%s_COL_%s = \'%s\'' % (prefix, table.name.upper(),
+            print('%s_%s_COL_%s = \'%s\'' % (prefix, table.name.upper(),
                                              column.name.upper(),
-                                             column.name)
+                                             column.name))
 
 
 def main():
     if len(sys.argv) <= 2:
-        print 'Usage: %s <schema file> <prefix>' % sys.argv[0]
+        print('Usage: %s <schema file> <prefix>' % sys.argv[0])
 
     location = sys.argv[1]
     prefix = sys.argv[2]

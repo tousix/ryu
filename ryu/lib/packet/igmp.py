@@ -117,6 +117,7 @@ where each Group Record has the following internal format:
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 """
 
+import six
 import struct
 
 from ryu.lib import addrconv
@@ -251,6 +252,14 @@ class igmpv3_query(igmp):
     _PACK_STR = '!BBH4sBBH'
     _MIN_LEN = struct.calcsize(_PACK_STR)
     MIN_LEN = _MIN_LEN
+    _TYPE = {
+        'ascii': [
+            'address'
+        ],
+        'asciilist': [
+            'srcs'
+        ]
+    }
 
     def __init__(self, msgtype=IGMP_TYPE_QUERY, maxresp=100, csum=0,
                  address='0.0.0.0', s_flg=0, qrv=2, qqic=0, num=0,
@@ -301,7 +310,7 @@ class igmpv3_query(igmp):
         if 0 == self.csum:
             self.csum = packet_utils.checksum(buf)
             struct.pack_into('!H', buf, 2, self.csum)
-        return str(buf)
+        return six.binary_type(buf)
 
     def __len__(self):
         return self._MIN_LEN + len(self.srcs) * 4
@@ -374,7 +383,7 @@ class igmpv3_report(igmp):
         if 0 == self.csum:
             self.csum = packet_utils.checksum(buf)
             struct.pack_into('!H', buf, 2, self.csum)
-        return str(buf)
+        return six.binary_type(buf)
 
     def __len__(self):
         records_len = 0
@@ -412,6 +421,14 @@ class igmpv3_report_group(stringify.StringifyMixin):
     """
     _PACK_STR = '!BBH4s'
     _MIN_LEN = struct.calcsize(_PACK_STR)
+    _TYPE = {
+        'ascii': [
+            'address'
+        ],
+        'asciilist': [
+            'srcs'
+        ]
+    }
 
     def __init__(self, type_=0, aux_len=0, num=0, address='0.0.0.0',
                  srcs=None, aux=None):
@@ -457,12 +474,12 @@ class igmpv3_report_group(stringify.StringifyMixin):
             mod = len(self.aux) % 4
             if mod:
                 self.aux += bytearray(4 - mod)
-                self.aux = str(self.aux)
+                self.aux = six.binary_type(self.aux)
             buf.extend(self.aux)
             if 0 == self.aux_len:
-                self.aux_len = len(self.aux) / 4
+                self.aux_len = len(self.aux) // 4
                 struct.pack_into('!B', buf, 1, self.aux_len)
-        return str(buf)
+        return six.binary_type(buf)
 
     def __len__(self):
         return self._MIN_LEN + len(self.srcs) * 4 + self.aux_len * 4
