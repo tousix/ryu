@@ -106,7 +106,7 @@ class StatsSender(app_manager.RyuApp):
         for server in self.servers:
             try:
                 if self.datetime is not None:
-                    r = requests.post(server+"/stats/reply", data=content, headers=headers, params={"time": self.datetime.isoformat()})
+                    r = requests.post(server, data=content, headers=headers, params={"time": self.datetime.isoformat()})
                     if r.status_code != requests.codes.ok:
                         LOG.error("Erreur n° " + str(r.status_code) + " sur le serveur " + server)
             except requests.ConnectionError:
