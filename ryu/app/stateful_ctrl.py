@@ -89,7 +89,11 @@ class StatefulCTRL(app_manager.RyuApp):
             server = None
         if server is not None:
             response = requests.get(server + "/deployment/rules/ask", params={"idswitch": dp.id})
-            data = response.json()
+            try:
+                data = response.json()
+            except ValueError:
+                LOG.error("Erreur de récupération de l'objet JSON.")
+                return None
             filtre = filter(lambda rule: rule.get("table_id", None) is 0, data)
             if filtre.__len__() is not count:
                 LOG.info("Nombre de règles sur "+str(dp.id)+" différent de la base de données")
