@@ -129,6 +129,57 @@ def to_actions(dp, acts):
     return inst
 
 
+def action_to_dict(act):
+    action_type = act.cls_action_type
+
+    if action_type == ofproto_v1_3.OFPAT_OUTPUT:
+        dict = {'type': 'OUTPUT',
+                'port': act.port}
+    elif action_type == ofproto_v1_3.OFPAT_COPY_TTL_OUT:
+        dict = {'type': 'COPY_TTL_OUT'}
+    elif action_type == ofproto_v1_3.OFPAT_COPY_TTL_IN:
+        dict = {'type': 'COPY_TTL_IN'}
+    elif action_type == ofproto_v1_3.OFPAT_SET_MPLS_TTL:
+        dict = {'type': 'SET_MPLS_TTL',
+                'mpls_ttl': act.mpls_ttl}
+    elif action_type == ofproto_v1_3.OFPAT_DEC_MPLS_TTL:
+        dict = {'type': 'DEC_MPLS_TTL'}
+    elif action_type == ofproto_v1_3.OFPAT_PUSH_VLAN:
+        dict = {'type': 'PUSH_VLAN',
+                'ethertype': act.ethertype}
+    elif action_type == ofproto_v1_3.OFPAT_POP_VLAN:
+        dict = {'type': 'POP_VLAN'}
+    elif action_type == ofproto_v1_3.OFPAT_PUSH_MPLS:
+        dict = {'type': 'PUSH_MPLS',
+                'ethertype': act.ethertype}
+    elif action_type == ofproto_v1_3.OFPAT_POP_MPLS:
+        dict = {'type': 'POP_MPLS',
+                'ethertype': act.ethertype}
+    elif action_type == ofproto_v1_3.OFPAT_SET_QUEUE:
+        dict = {'type': 'SET_QUEUE',
+                'queue_id': act.queue_id}
+    elif action_type == ofproto_v1_3.OFPAT_GROUP:
+        dict = {'type': 'GROUP',
+                'group_id': act.group_id}
+    elif action_type == ofproto_v1_3.OFPAT_SET_NW_TTL:
+        dict = {'type': 'SET_NW_TTL',
+                'nw_ttl': act.nw_ttl}
+    elif action_type == ofproto_v1_3.OFPAT_DEC_NW_TTL:
+        dict = {'type': 'DEC_NW_TTL'}
+    elif action_type == ofproto_v1_3.OFPAT_SET_FIELD:
+        dict = {'type': 'SET_FIELD',
+                'field': str(act.key),
+                'value': act.value}
+    elif action_type == ofproto_v1_3.OFPAT_PUSH_PBB:
+        dict = {'type': 'PUSH_PBB:',
+                'ethertype': act.ethertype}
+    elif action_type == ofproto_v1_3.OFPAT_POP_PBB:
+        dict = {'type': 'POP_PBB'}
+    else:
+        dict = {'type': 'UNKNOWN'}
+    return dict
+
+
 def action_to_str(act):
     action_type = act.cls_action_type
 
@@ -167,6 +218,41 @@ def action_to_str(act):
     else:
         buf = 'UNKNOWN'
     return buf
+
+
+def actions_to_dict(instructions):
+    actions = []
+
+    for instruction in instructions:
+        if isinstance(instruction,
+                      ofproto_v1_3_parser.OFPInstructionActions):
+            for a in instruction.actions:
+                actions.append(action_to_dict(a))
+
+        elif isinstance(instruction,
+                        ofproto_v1_3_parser.OFPInstructionGotoTable):
+            dict = {"type": 'GOTO_TABLE',
+                    "table_id": instruction.table_id}
+            actions.append(dict)
+
+        elif isinstance(instruction,
+                        ofproto_v1_3_parser.OFPInstructionWriteMetadata):
+            dict = {"type": 'WRITE_METADATA',
+                    "metadata": instruction.metadata}
+            if instruction.metadata_mask:
+                dict["metadata_mask"] = instruction.metadata
+            actions.append(dict)
+
+        elif isinstance(instruction,
+                        ofproto_v1_3_parser.OFPInstructionMeter):
+            dict = {"type": 'METER',
+                    "meter_id": instruction.meter_id}
+            actions.append(dict)
+
+        else:
+            continue
+
+    return actions
 
 
 def actions_to_str(instructions):
@@ -470,7 +556,7 @@ def get_flow_stats(dp, waiters, flow={}):
     flows = []
     for msg in msgs:
         for stats in msg.body:
-            actions = actions_to_str(stats.instructions)
+            actions = actions_to_dict(stats.instructions)
             match = match_to_str(stats.match)
 
             s = {'priority': stats.priority,
@@ -759,7 +845,7 @@ def get_group_desc(dp, waiters):
             for bucket in stats.buckets:
                 actions = []
                 for action in bucket.actions:
-                    actions.append(action_to_str(action))
+                    actions.append(action_to_dict(action))
                 b = {'weight': bucket.weight,
                      'watch_port': bucket.watch_port,
                      'watch_group': bucket.watch_group,
