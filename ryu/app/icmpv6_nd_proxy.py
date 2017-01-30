@@ -38,7 +38,7 @@ class ICMPV6_proxy(app_manager.RyuApp):
                 self.server = server
             except requests.ConnectionError:
                 LOG.warning("Server " + server + " not reachable, ignoring url defined\n" +
-                            "The proxy arp app will resolve the ND solicitations by flooding on the data plane !")
+                            "The ndp proxy app will resolve the ND solicitations by flooding on the data plane !")
                 self.online_avaliable = False
             LOG.debug("Server verification complete")
 
